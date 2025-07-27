@@ -1,0 +1,44 @@
+[
+    {
+        "red": 255,
+        "green": 0,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 0
+    },
+    {
+        "red": 0,
+        "green": 255,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 1
+    },
+    {
+        "red": 255,
+        "green": 0,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 0
+    },
+    {
+        "red": 0,
+        "green": 255,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 1
+    },
+    {
+        "red": 255,
+        "green": 0,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 0
+    },
+    {
+        "red": 0,
+        "green": 255,
+        "blue": 0,
+        "brightness": 128,
+        "rainbow": 1
+    }
+]

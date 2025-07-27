@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text to RGB Canvas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            flex: 1 1 48%;
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+
+        input,
+        select {
+            padding: 6px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #005fa3;
+        }
+
+        #textCanvas {
+            display: block;
+            margin: 30px auto 0;
+            border: 1px solid #444;
+            max-width: 100%;
+            background-color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Text to RGB Canvas</h2>
+
+    <div class="form-group">
+        <label>Text:
+            <input type="text" id="inputText" value="HELLO" />
+        </label>
+
+        <label>Canvas Width (px):
+            <input type="number" id="inputWidth" value="200" />
+        </label>
+
+        <label>Canvas Height (px):
+            <input type="number" id="inputHeight" value="60" />
+        </label>
+
+        <label>Font Size (px):
+            <input type="number" id="inputFontSize" value="40" />
+        </label>
+
+        <label>Font Family:
+            <select id="inputFont">
+                <option value="sans-serif">Sans-serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="Arial">Arial</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Tahoma">Tahoma</option>
+            </select>
+        </label>
+
+        <label>Brightness:
+            <input type="range" id="inputBrightness" min="0" max="255" value="128" />
+        </label>
+
+        <label>Text Color:
+            <input type="color" id="inputTextColor" value="#000000" />
+        </label>
+
+        <label>Background Color:
+            <input type="color" id="inputBGColor" value="#ffffff" />
+        </label>
+
+        <label>Vertical Alignment:
+            <select id="inputAlignment">
+                <option value="top">Top</option>
+                <option value="middle" selected>Middle</option>
+                <option value="bottom">Bottom</option>
+            </select>
+        </label>
+
+        <label>Pattern:
+            <select id="inputPattern">
+                <option value="S" selected>S (Row-wise)</option>
+                <option value="Z">Z (Column-wise)</option>
+            </select>
+        </label>
+    </div>
+
+    <button onclick="renderCanvas()">Render</button>
+
+    <canvas id="textCanvas"></canvas>
+
+    <script>
+        function renderCanvas() {
+            const canvas = document.getElementById("textCanvas");
+            const ctx = canvas.getContext("2d");
+
+            const text = document.getElementById("inputText").value;
+            let width = parseInt(document.getElementById("inputWidth").value);
+            const height = parseInt(document.getElementById("inputHeight").value);
+            const fontSize = parseInt(document.getElementById("inputFontSize").value);
+            const fontFamily = document.getElementById("inputFont").value;
+            const brightnessThreshold = parseInt(document.getElementById("inputBrightness").value);
+            const textColor = document.getElementById("inputTextColor").value;
+            const bgColor = document.getElementById("inputBGColor").value;
+            const alignment = document.getElementById("inputAlignment").value;
+            const pattern = document.getElementById("inputPattern").value;
+
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            const measuredWidth = Math.ceil(ctx.measureText(text).width);
+            width = measuredWidth;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = textColor;
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+
+            let y = 0;
+            if (alignment === "middle") {
+                y = (height - fontSize) / 2;
+            } else if (alignment === "bottom") {
+                y = height - fontSize;
+            }
+
+            ctx.fillText(text, 0, y);
+
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            const pixels2D = [];
+
+            if (pattern === "S") {
+                // S-pattern: [width][height]
+                for (let x = 0; x < width; x++) {
+                    const column = [];
+                    for (let y = 0; y < height; y++) {
+                        const index = (y * width + x) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        column.push([r, g, b]);
+                    }
+                    pixels2D.push(column);
+                }
+            } else {
+                // Z-pattern: [height][width]
+                for (let y = 0; y < height; y++) {
+                    const row = [];
+                    for (let x = 0; x < width; x++) {
+                        const index = (y * width + x) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        row.push([r, g, b]);
+                    }
+                    pixels2D.push(row);
+                }
+            }
+
+            console.log(JSON.stringify({ width, height, brightnessThreshold, pattern, pixels2D }));
+        }
+    </script>
+</body>
+
+</html>
