@@ -13,6 +13,7 @@ using namespace std;
 
 #define JSON_FILE "/settings.json"
 
+#define PIEZO_PIN 15
 #define LED_PIN 23
 #define LED_COUNT 14
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -44,7 +45,8 @@ enum MenuState
     RGB_SCREEN,
     SELECTED_RGB,
     SELECTED_BASE,
-    SELECTED_HIT
+    SELECTED_HIT,
+    MEM_SCREEN
 };
 std::atomic<MenuState> currentMenu{MENU_MAIN};
 std::atomic<int> selectedMainIndex{0};
@@ -60,12 +62,12 @@ const char *mainMenuItems[menuItemCount] = {
 
 std::atomic<int> selectedHitIndex{0};
 constexpr int hitItemCount = 5;
-enum class BaseMenu
+enum class HitMenu
 {
     COLOR,
     BRIGHTNESS,
-    SPEED,
-    STROBE,
+    TAIL,
+    CHASE,
     RAINBOW
 };
 const char *hitItems[hitItemCount] = {
@@ -78,12 +80,12 @@ const char *hitItems[hitItemCount] = {
 
 std::atomic<int> selectedBaseIndex{0};
 constexpr int baseItemCount = 5;
-enum class HitMenu
+enum class BaseMenu
 {
     COLOR,
     BRIGHTNESS,
-    TAIL,
-    CHASE,
+    SPEED,
+    STROBE,
     RAINBOW
 };
 const char *baseItems[baseItemCount] = {
@@ -104,19 +106,20 @@ const char *RGBItems[RGBItemCount] = {
 class HitData
 {
 public:
-    atomic<uint8_t> red{255}, blue{255}, green{255}, brightness{100}, tail;
-    atomic<bool> chase, rainbow;
+    atomic<uint8_t> red{255}, blue{255}, green{255}, brightness{100}, tail{3};
+    atomic<bool> chase{0}, rainbow{0};
 };
 class BaseData
 {
 public:
-    atomic<uint8_t> red{255}, blue{0}, green{0}, brightness{100}, speed;
-    atomic<bool> strobe, rainbow;
+    atomic<uint8_t> red{255}, blue{0}, green{0}, brightness{100}, speed{2};
+    atomic<bool> strobe{0}, rainbow{0};
 };
 HitData hitData;
 BaseData baseData;
 
 atomic<bool> hit(0), base(0);
+String mem_screen_data;
 void printAllData();
 void updateSelectedIndex(std::atomic<int> &index, int itemCount, bool moveUp)
 {
@@ -240,6 +243,7 @@ void menu_screen();
 void base_screen(int selectedWidth);
 void hit_screen(int selectedWidth);
 void rgb_screen(int selectedWidth);
+void mem_screen(String line);
 void printAllData()
 {
     Serial.println("=== HitData ===");
@@ -339,6 +343,8 @@ void oledTask(void *pvParameters)
             base_screen(100);
         else if (currentMenu.load() == SELECTED_HIT)
             hit_screen(100);
+        else if (currentMenu.load() == MEM_SCREEN)
+            mem_screen(mem_screen_data);
         display.display();
         vTaskDelay(pdMS_TO_TICKS(1));
     }
@@ -478,11 +484,21 @@ void buttonTask(void *pvParameters)
             }
             if (selectedBaseIndex == static_cast<int>(BaseMenu::SPEED) && buttonState[up])
             {
-                baseData.speed.store(baseData.speed.load() + 1);
+                uint8_t speed = baseData.speed.load() + 1;
+                if (speed > 9)
+                    speed = 9;
+                else if (speed < 0)
+                    speed = 0;
+                baseData.speed.store(speed);
             }
             else if (selectedBaseIndex == static_cast<int>(BaseMenu::SPEED) && buttonState[down])
             {
-                baseData.speed.store(baseData.speed.load() - 1);
+                uint8_t speed = baseData.speed.load() - 1;
+                if (speed > 9)
+                    speed = 9;
+                else if (speed < 0)
+                    speed = 0;
+                baseData.speed.store(speed);
             }
             if (selectedBaseIndex == static_cast<int>(BaseMenu::STROBE) && buttonState[up])
             {
@@ -617,58 +633,178 @@ void ledTask(void *pvParameters)
     static uint8_t hue = 0;
     while (true)
     {
-        bool isHit = false;
-        uint8_t red, green, blue, brightness;
-        bool rainbow;
+        int isHit = 0;
 
-        if (isHit)
+        isHit = analogRead(PIEZO_PIN);
+        if (isHit > 4094)
         {
-            red = hitData.red.load();
-            green = hitData.green.load();
-            blue = hitData.blue.load();
-            brightness = hitData.brightness.load();
-            rainbow = hitData.rainbow.load();
-        }
-        else
-        {
-            red = baseData.red.load();
-            green = baseData.green.load();
-            blue = baseData.blue.load();
-            brightness = baseData.brightness.load();
-            rainbow = baseData.rainbow.load();
-        }
+            uint8_t red = hitData.red.load(),
+                    green = hitData.green.load(),
+                    blue = hitData.blue.load(),
+                    brightness = hitData.brightness.load(),
+                    tail = hitData.tail.load();
+            bool rainbow = hitData.rainbow.load(),
+                 chase = hitData.chase.load();
 
-        if (rainbow)
-        {
             const int ledCount = strip.numPixels();
 
-            for (int i = 0; i < ledCount; i++)
+            if (rainbow && chase)
             {
-                uint8_t pixelHue = hue + (i * 256 / ledCount);
-                uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 256));
-                strip.setPixelColor(i, color);
+                static int pos = 0;
+                static uint8_t hueOffset = 0;
+                for (int i = 0; i < strip.numPixels(); i++)
+                {
+                    strip.setPixelColor(i, 0);
+                }
+
+                for (int i = 0; i < tail; i++)
+                {
+                    int index = (pos - i + strip.numPixels()) % strip.numPixels();
+
+                    uint8_t brightnessScale = 255 - i * (205 / max(1, tail - 1));
+
+                    uint16_t pixelHue = (hueOffset + i * 10) % 360;
+                    uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 182));
+                    uint8_t r = (uint8_t)(color >> 16);
+                    uint8_t g = (uint8_t)(color >> 8);
+                    uint8_t b = (uint8_t)color;
+                    r = (r * brightnessScale) / 255;
+                    g = (g * brightnessScale) / 255;
+                    b = (b * brightnessScale) / 255;
+
+                    strip.setPixelColor(index, r, g, b);
+                }
+
+                strip.setBrightness(brightness);
+                strip.show();
+                pos = (pos + 1) % strip.numPixels();
+                hueOffset = (hueOffset + 1) % 360;
+
+                vTaskDelay(pdMS_TO_TICKS(100));
             }
+            else if (rainbow && !chase)
+            {
+            }
+            else if (!rainbow && chase)
+            {
+                static int pos = 0;
 
-            strip.setBrightness(brightness);
-            strip.show();
+                for (int i = 0; i < strip.numPixels(); i++)
+                {
+                    strip.setPixelColor(i, 0);
+                }
 
-            hue++;
-            if (hue >= 255)
-                hue = 0;
+                int steps = tail - 1;
+                int stepDrop = brightness / max(1, steps);
+                for (int i = 0; i < tail; i++)
+                {
+                    int index = (pos - i + strip.numPixels()) % strip.numPixels();
 
-            vTaskDelay(pdMS_TO_TICKS(20));
+                    int level = brightness - i * stepDrop;
+                    if (level < 0)
+                        level = 0;
+
+                    uint8_t scaledRed = (red * level) / 255;
+                    uint8_t scaledGreen = (green * level) / 255;
+                    uint8_t scaledBlue = (blue * level) / 255;
+
+                    strip.setPixelColor(index, scaledRed, scaledGreen, scaledBlue);
+                }
+
+                strip.setBrightness(brightness);
+                strip.show();
+
+                pos = (pos + 1) % strip.numPixels();
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            else
+            {
+                for (int i = 0; i < LED_COUNT; i++)
+                {
+                    strip.setPixelColor(i, strip.Color(red, green, blue));
+                }
+                strip.setBrightness(brightness);
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
         }
         else
         {
-            for (int i = 0; i < LED_COUNT; i++)
+            uint8_t red = baseData.red.load(),
+                    green = baseData.green.load(),
+                    blue = baseData.blue.load(),
+                    brightness = baseData.brightness.load(),
+                    speed = baseData.speed.load();
+            bool rainbow = baseData.rainbow.load();
+            bool strobe = baseData.strobe.load();
+
+            if (rainbow && strobe)
             {
-                strip.setPixelColor(i, strip.Color(red, green, blue));
+                const int ledCount = strip.numPixels();
+                uint8_t baseHue = hue;
+                for (int i = 0; i < ledCount; i++)
+                {
+                    uint8_t pixelHue = baseHue + (i * 256 / ledCount);
+                    uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 256));
+                    strip.setPixelColor(i, color);
+                }
+                strip.setBrightness(brightness);
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+
+                for (int i = 0; i < ledCount; i++)
+                {
+                    strip.setPixelColor(i, 0);
+                }
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+
+                hue += 8;
+                if (hue >= 255)
+                    hue = 0;
             }
-
-            strip.setBrightness(brightness);
-            strip.show();
-
-            vTaskDelay(pdMS_TO_TICKS(100));
+            else if (!rainbow && strobe)
+            {
+                for (int i = 0; i < LED_COUNT; i++)
+                {
+                    strip.setPixelColor(i, strip.Color(red, green, blue));
+                }
+                strip.setBrightness(brightness);
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                for (int i = 0; i < LED_COUNT; i++)
+                {
+                    strip.setPixelColor(i, 0);
+                }
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+            }
+            else if (rainbow && !strobe)
+            {
+                const int ledCount = strip.numPixels();
+                for (int i = 0; i < ledCount; i++)
+                {
+                    uint8_t pixelHue = hue + (i * 256 / ledCount);
+                    uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 256));
+                    strip.setPixelColor(i, color);
+                }
+                strip.setBrightness(brightness);
+                strip.show();
+                hue++;
+                if (hue >= 255)
+                    hue = 0;
+                vTaskDelay(pdMS_TO_TICKS(20));
+            }
+            else
+            {
+                for (int i = 0; i < LED_COUNT; i++)
+                {
+                    strip.setPixelColor(i, strip.Color(red, green, blue));
+                }
+                strip.setBrightness(brightness);
+                strip.show();
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
         }
     }
 }
@@ -683,30 +819,46 @@ void presetTask(void *pvParameters)
             presetState[i].store(!digitalRead(presetPins[i]));
             if (presetState[i].load())
                 pressed = true;
-            if (presetState[i].load() && (currentMenu == BASEMENU || currentMenu == HITMENU))
-            {
-
-                display.clearDisplay();
-                display.setCursor(20, 20);
-                String line = "saving" + String(i);
-                display.print(line);
-                display.display();
-                Serial.println(i);
-                savePresetToJson(i);
-            }
             if (presetState[i].load() && (currentMenu == MENU_MAIN))
             {
+                if (i < 3)
+                    mem_screen_data = "Loading Base Preset " + String(i + 1);
+                else if (i > 2)
+                    mem_screen_data = "Loading Hit Preset " + String((i - 3) + 1);
 
-                display.clearDisplay();
-                display.setCursor(20, 20);
-                String line = "loading" + String(i);
-                display.print(line);
-                display.display();
-                Serial.println(i);
+                MenuState temp = currentMenu.load();
+                currentMenu.store(MEM_SCREEN);
                 loadPresetToJson(i);
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                currentMenu.store(temp);
             }
+            uint64_t m = millis();
             while (pressed)
             {
+                if (millis() - m > 2000)
+                {
+                    if (presetState[i].load())
+                    {
+                        if (i < 3 && currentMenu == BASEMENU)
+                        {
+                            mem_screen_data = "Saving Base Preset " + String(i + 1);
+                            savePresetToJson(i);
+                        }
+                        else if (i > 2 && currentMenu == HITMENU)
+                        {
+                            mem_screen_data = "Saving Hit Preset " + String((i - 3) + 1);
+                            savePresetToJson(i);
+                        }
+                        else
+                        {
+                            mem_screen_data = "Wrong Button";
+                        }
+                        MenuState temp = currentMenu.load();
+                        currentMenu.store(MEM_SCREEN);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        currentMenu.store(temp);
+                    }
+                }
                 pressed = false;
                 presetState[i].store(!digitalRead(presetPins[i]));
                 if (presetState[i].load())
@@ -718,6 +870,17 @@ void presetTask(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
+TaskHandle_t ledTaskHandle = NULL;
+void restartLedTask()
+{
+    if (ledTaskHandle != NULL)
+    {
+        vTaskDelete(ledTaskHandle);
+        ledTaskHandle = NULL;
+    }
+    xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, &ledTaskHandle);
+}
+
 void setup()
 {
     Serial.begin(9600);
@@ -741,13 +904,13 @@ void setup()
     if (!SPIFFS.begin(true))
     {
         Serial.println("SPIFFS mount failed");
-        // return;
     }
+    pinMode(PIEZO_PIN, INPUT_PULLUP);
     strip.begin();
     strip.show();
     xTaskCreate(oledTask, "OLED Task", 4096, NULL, 1, NULL);
     xTaskCreate(buttonTask, "Task Task", 4096, NULL, 1, NULL);
-    xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, NULL);
+    xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, &ledTaskHandle);
     xTaskCreate(presetTask, "Preset Task", 4096, NULL, 1, NULL);
 }
 void loop()
@@ -905,5 +1068,12 @@ void rgb_screen(int selectWidth)
         }
         display.print(line);
     }
+    display.display();
+}
+void mem_screen(String line)
+{
+    display.clearDisplay();
+    display.setCursor(0, 20);
+    display.print(line);
     display.display();
 }
