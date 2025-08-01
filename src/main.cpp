@@ -61,7 +61,7 @@ const char *mainMenuItems[menuItemCount] = {
     "Hit Color"};
 
 std::atomic<int> selectedHitIndex{0};
-constexpr int hitItemCount = 5;
+constexpr int hitItemCount = 2;
 enum class HitMenu
 {
     COLOR,
@@ -73,13 +73,13 @@ enum class HitMenu
 const char *hitItems[hitItemCount] = {
     "Color",
     "Brightness",
-    "Tail",
-    "Chase",
-    "Rainbow",
+    // "Tail",
+    // "Chase",
+    // "Rainbow",
 };
 
 std::atomic<int> selectedBaseIndex{0};
-constexpr int baseItemCount = 5;
+constexpr int baseItemCount = 2;
 enum class BaseMenu
 {
     COLOR,
@@ -91,9 +91,9 @@ enum class BaseMenu
 const char *baseItems[baseItemCount] = {
     "Color",
     "Brightness",
-    "Speed",
-    "Strobe",
-    "Rainbow",
+    // "Speed",
+    // "Strobe",
+    // "Rainbow",
 };
 
 std::atomic<int> selectedRGBIndex{0};
