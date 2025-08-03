@@ -366,9 +366,9 @@ void buttonTask(void *pvParameters)
             if (buttonState[up].load() || buttonState[down].load())
             {
                 if (buttonState[up].load())
-                    updateSelectedIndex(selectedMainIndex, menuItemCount, 0);
-                else if (buttonState[down].load())
                     updateSelectedIndex(selectedMainIndex, menuItemCount, 1);
+                else if (buttonState[down].load())
+                    updateSelectedIndex(selectedMainIndex, menuItemCount, 0);
             }
             else if (buttonState[ok].load())
             {
@@ -387,9 +387,9 @@ void buttonTask(void *pvParameters)
             if (buttonState[up].load() || buttonState[down].load())
             {
                 if (buttonState[up].load())
-                    updateSelectedIndex(selectedBaseIndex, baseItemCount, 0);
-                else if (buttonState[down].load())
                     updateSelectedIndex(selectedBaseIndex, baseItemCount, 1);
+                else if (buttonState[down].load())
+                    updateSelectedIndex(selectedBaseIndex, baseItemCount, 0);
             }
             else if (selectedBaseIndex == static_cast<int>(BaseMenu::COLOR) && buttonState[ok])
             {
@@ -411,9 +411,9 @@ void buttonTask(void *pvParameters)
             if (buttonState[up].load() || buttonState[down].load())
             {
                 if (buttonState[up].load())
-                    updateSelectedIndex(selectedHitIndex, hitItemCount, 0);
-                else if (buttonState[down].load())
                     updateSelectedIndex(selectedHitIndex, hitItemCount, 1);
+                else if (buttonState[down].load())
+                    updateSelectedIndex(selectedHitIndex, hitItemCount, 0);
             }
             else if (selectedHitIndex == static_cast<int>(HitMenu::COLOR) && buttonState[ok])
             {
