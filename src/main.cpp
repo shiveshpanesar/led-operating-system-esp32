@@ -307,13 +307,13 @@ void adjustRGBValue(int direction)
     if (colorPtr != nullptr)
     {
         colorPtr->store(colorPtr->load() + direction);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(500));
         buttonState[up].store(!digitalRead(btnPins[up]));
         buttonState[down].store(!digitalRead(btnPins[down]));
         while ((direction == 1 ? buttonState[up].load() : buttonState[down].load()))
         {
             colorPtr->store(colorPtr->load() + direction);
-            vTaskDelay(pdMS_TO_TICKS(200));
+            vTaskDelay(pdMS_TO_TICKS(40));
             buttonState[up].store(!digitalRead(btnPins[up]));
             buttonState[down].store(!digitalRead(btnPins[down]));
         }
@@ -435,9 +435,9 @@ void buttonTask(void *pvParameters)
             if (buttonState[up].load() || buttonState[down].load())
             {
                 if (buttonState[up].load())
-                    updateSelectedIndex(selectedRGBIndex, RGBItemCount, 0);
-                else if (buttonState[down].load())
                     updateSelectedIndex(selectedRGBIndex, RGBItemCount, 1);
+                else if (buttonState[down].load())
+                    updateSelectedIndex(selectedRGBIndex, RGBItemCount, 0);
             }
             else if (buttonState[ok].load())
             {
@@ -829,7 +829,7 @@ void presetTask(void *pvParameters)
                 MenuState temp = currentMenu.load();
                 currentMenu.store(MEM_SCREEN);
                 loadPresetToJson(i);
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                vTaskDelay(pdMS_TO_TICKS(500));
                 currentMenu.store(temp);
             }
             uint64_t m = millis();
@@ -839,12 +839,12 @@ void presetTask(void *pvParameters)
                 {
                     if (presetState[i].load())
                     {
-                        if (i < 3 && currentMenu == BASEMENU)
+                        if (i < 3 && (currentMenu.load() == BASEMENU || currentMenu.load() == RGB_SCREEN))
                         {
                             mem_screen_data = "Saving Base Preset " + String(i + 1);
                             savePresetToJson(i);
                         }
-                        else if (i > 2 && currentMenu == HITMENU)
+                        else if (i > 2 && (currentMenu.load() == HITMENU || currentMenu.load() == RGB_SCREEN))
                         {
                             mem_screen_data = "Saving Hit Preset " + String((i - 3) + 1);
                             savePresetToJson(i);
@@ -855,7 +855,7 @@ void presetTask(void *pvParameters)
                         }
                         MenuState temp = currentMenu.load();
                         currentMenu.store(MEM_SCREEN);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        vTaskDelay(pdMS_TO_TICKS(500));
                         currentMenu.store(temp);
                     }
                 }
