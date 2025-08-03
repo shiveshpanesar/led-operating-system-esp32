@@ -185,10 +185,10 @@ void savePresetToJson(uint8_t i)
 
     serializeJsonPretty(doc, file);
     file.close();
-    Serial.println("Preset saved.");
-    printAllData();
-    Serial.println("✅ settings.json contents:");
-    serializeJsonPretty(doc, Serial);
+    // Serial.println("Preset saved.");
+    // printAllData();
+    // Serial.println("✅ settings.json contents:");
+    // serializeJsonPretty(doc, Serial);
 }
 void loadPresetToJson(uint8_t i)
 {
@@ -234,10 +234,10 @@ void loadPresetToJson(uint8_t i)
         hitData.chase.store(hit_item["chase"]);
         hitData.rainbow.store(hit_item["rainbow"]);
     }
-    Serial.println("Preset saved.");
-    printAllData();
-    Serial.println("✅ settings.json contents:");
-    serializeJsonPretty(doc, Serial);
+    // Serial.println("Preset saved.");
+    // printAllData();
+    // Serial.println("✅ settings.json contents:");
+    // serializeJsonPretty(doc, Serial);
 }
 void menu_screen();
 void base_screen(int selectedWidth);
@@ -829,22 +829,30 @@ void presetTask(void *pvParameters)
                 MenuState temp = currentMenu.load();
                 currentMenu.store(MEM_SCREEN);
                 loadPresetToJson(i);
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200)); // preset load time
                 currentMenu.store(temp);
             }
             uint64_t m = millis();
             while (pressed)
             {
-                if (millis() - m > 2000)
+                if (millis() - m > 1500)
                 {
                     if (presetState[i].load())
                     {
-                        if (i < 3 && (currentMenu.load() == BASEMENU || currentMenu.load() == RGB_SCREEN))
+                        if (i < 3 && (currentMenu.load() == BASEMENU ||
+                                      currentMenu.load() == RGB_SCREEN ||
+                                      currentMenu.load() == SELECTED_BASE ||
+                                      currentMenu.load() == SELECTED_HIT ||
+                                      currentMenu.load() == SELECTED_RGB))
                         {
                             mem_screen_data = "Saving Base Preset " + String(i + 1);
                             savePresetToJson(i);
                         }
-                        else if (i > 2 && (currentMenu.load() == HITMENU || currentMenu.load() == RGB_SCREEN))
+                        else if (i > 2 && (currentMenu.load() == HITMENU ||
+                                           currentMenu.load() == RGB_SCREEN ||
+                                           currentMenu.load() == SELECTED_BASE ||
+                                           currentMenu.load() == SELECTED_HIT ||
+                                           currentMenu.load() == SELECTED_RGB))
                         {
                             mem_screen_data = "Saving Hit Preset " + String((i - 3) + 1);
                             savePresetToJson(i);
@@ -855,7 +863,7 @@ void presetTask(void *pvParameters)
                         }
                         MenuState temp = currentMenu.load();
                         currentMenu.store(MEM_SCREEN);
-                        vTaskDelay(pdMS_TO_TICKS(500));
+                        vTaskDelay(pdMS_TO_TICKS(500)); // preset save time
                         currentMenu.store(temp);
                     }
                 }
