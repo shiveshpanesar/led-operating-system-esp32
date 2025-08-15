@@ -8,7 +8,6 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include "json.h"
-// #define DEBUG
 using namespace std;
 
 #define JSON_FILE "/settings.json"
@@ -84,17 +83,16 @@ enum class BaseMenu
 {
     COLOR,
     BRIGHTNESS,
-    SPEED,
     STROBE,
-    RAINBOW
+    RAINBOW,
+    SPEED
 };
 const char *baseItems[baseItemCount] = {
     "Color",
     "Brightness",
-    "Speed",
     "Strobe",
     "Rainbow",
-};
+    "Speed"};
 
 std::atomic<int> selectedRGBIndex{0};
 constexpr int RGBItemCount = 3;
@@ -795,6 +793,8 @@ void ledTask(void *pvParameters)
             }
             else if (!rainbow && chase)
             {
+
+                // make it go through whole length within tail time
                 static int pos = 0;
 
                 for (int i = 0; i < strip.numPixels(); i++)
@@ -836,11 +836,12 @@ void ledTask(void *pvParameters)
                 {
                     strip.setPixelColor(i, strip.Color(currentRed, currentGreen, currentBlue));
                 }
+                strip.setBrightness(brightness);
                 strip.show();
-                vTaskDelay(pdMS_TO_TICKS(200));
+                vTaskDelay(pdMS_TO_TICKS(20)); // time for which hit light is on
 
-                int fadeSteps = tail * 10;
-                int stepDelay = max(1, tail * 10 / fadeSteps);
+                int fadeSteps = tail * 100;
+                int stepDelay = max(1, tail * 100 / fadeSteps);
 
                 for (int step = 1; step <= fadeSteps; step++)
                 {
@@ -852,11 +853,13 @@ void ledTask(void *pvParameters)
                     {
                         strip.setPixelColor(i, strip.Color(r, g, b));
                     }
+                    strip.setBrightness(brightness);
                     strip.show();
                     vTaskDelay(pdMS_TO_TICKS(stepDelay));
                 }
                 for (int i = 0; i < strip.numPixels(); i++)
                     strip.setPixelColor(i, 0);
+                strip.setBrightness(brightness);
                 strip.show();
             }
         }
@@ -876,7 +879,7 @@ void ledTask(void *pvParameters)
 
                 if (rainbow && strobe)
                 {
-
+                    // add nhardcode values for color
                     static uint16_t hue = 0;
                     const int ledCount = strip.numPixels();
 
@@ -891,6 +894,7 @@ void ledTask(void *pvParameters)
 
                     for (int i = 0; i < ledCount; i++)
                         strip.setPixelColor(i, 0);
+                    strip.setBrightness(brightness);
                     strip.show();
                     vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
 
@@ -914,6 +918,7 @@ void ledTask(void *pvParameters)
                 }
                 else if (rainbow && !strobe)
                 {
+                    // make it fast
                     static uint16_t hue = 0;
                     uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
                     for (int i = 0; i < strip.numPixels(); i++)
@@ -925,7 +930,7 @@ void ledTask(void *pvParameters)
                     strip.show();
 
                     hue = (hue + 1) % 360;
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                    vTaskDelay(pdMS_TO_TICKS(910 - (speed * 100)));
                 }
                 else
                 {
