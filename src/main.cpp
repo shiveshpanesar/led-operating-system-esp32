@@ -695,7 +695,7 @@ void ledTask(void *pvParameters)
         isHit = analogRead(PIEZO_PIN);
         Serial.println(isHit);
         // if (isHit)
-        if (isHit > 1000 && (currentTime - lastHitTime > hitCooldown))
+        if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
         {
             lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
