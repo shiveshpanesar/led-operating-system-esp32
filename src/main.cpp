@@ -679,7 +679,7 @@ void ledTask(void *pvParameters)
     {
         int isHit = 0;
 
-        // isHit = analogRead(PIEZO_PIN);
+        isHit = analogRead(PIEZO_PIN);
         if (isHit > 10)
         {
             uint8_t red = hitData.red.load(),
