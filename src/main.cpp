@@ -673,16 +673,20 @@ void heartbeatEffect(uint8_t red, uint8_t green, uint8_t blue, uint8_t brightnes
 void ledTask(void *pvParameters)
 {
     heartbeatEffect(100, 100, 100, 100);
-
+    static uint32_t lastHitTime = 0;
+    static uint32_t lastBaseEffectTime = 0;
+    const uint32_t hitCooldown = 50;
+    const uint32_t baseEffectInterval = 20;
     static uint8_t hue = 0;
     while (true)
     {
         int isHit = 0;
-
+        unsigned long currentTime = millis();
         isHit = analogRead(PIEZO_PIN);
         Serial.println(isHit);
-        if (isHit > 4094)
+        if (isHit > 1000 && (currentTime - lastHitTime > hitCooldown))
         {
+            lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
                     green = hitData.green.load(),
                     blue = hitData.blue.load(),
@@ -812,6 +816,7 @@ void ledTask(void *pvParameters)
             }
             else
             {
+
                 uint8_t currentRed = red;
                 uint8_t currentGreen = green;
                 uint8_t currentBlue = blue;
@@ -836,78 +841,83 @@ void ledTask(void *pvParameters)
                 strip.show();
             }
         }
+
         else
         {
-            uint8_t red = baseData.red.load(),
-                    green = baseData.green.load(),
-                    blue = baseData.blue.load(),
-                    brightness = baseData.brightness.load(),
-                    speed = baseData.speed.load();
-            bool rainbow = baseData.rainbow.load();
-            bool strobe = baseData.strobe.load();
-
-            if (rainbow && strobe)
+            if (currentTime - lastBaseEffectTime > baseEffectInterval)
             {
+                lastBaseEffectTime = currentTime;
+                uint8_t red = baseData.red.load(),
+                        green = baseData.green.load(),
+                        blue = baseData.blue.load(),
+                        brightness = baseData.brightness.load(),
+                        speed = baseData.speed.load();
+                bool rainbow = baseData.rainbow.load();
+                bool strobe = baseData.strobe.load();
 
-                static uint16_t hue = 0;
-                const int ledCount = strip.numPixels();
-
-                uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
-                for (int i = 0; i < ledCount; i++)
-                    strip.setPixelColor(i, color);
-
-                strip.setBrightness(brightness);
-                strip.show();
-
-                vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
-
-                for (int i = 0; i < ledCount; i++)
-                    strip.setPixelColor(i, 0);
-                strip.show();
-                vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
-
-                hue = (hue + 45) % 360;
-            }
-            else if (!rainbow && strobe)
-            {
-                for (int i = 0; i < LED_COUNT; i++)
+                if (rainbow && strobe)
                 {
-                    strip.setPixelColor(i, strip.Color(red, green, blue));
-                }
-                strip.setBrightness(brightness);
-                strip.show();
-                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
-                for (int i = 0; i < LED_COUNT; i++)
-                {
-                    strip.setPixelColor(i, 0);
-                }
-                strip.show();
-                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
-            }
-            else if (rainbow && !strobe)
-            {
-                static uint16_t hue = 0;
-                uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
-                for (int i = 0; i < strip.numPixels(); i++)
-                {
-                    strip.setPixelColor(i, color);
-                }
 
-                strip.setBrightness(brightness);
-                strip.show();
+                    static uint16_t hue = 0;
+                    const int ledCount = strip.numPixels();
 
-                hue = (hue + 1) % 360;
-                vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
-            }
-            else
-            {
-                for (int i = 0; i < LED_COUNT; i++)
-                {
-                    strip.setPixelColor(i, strip.Color(red, green, blue));
+                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                    for (int i = 0; i < ledCount; i++)
+                        strip.setPixelColor(i, color);
+
+                    strip.setBrightness(brightness);
+                    strip.show();
+
+                    vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
+
+                    for (int i = 0; i < ledCount; i++)
+                        strip.setPixelColor(i, 0);
+                    strip.show();
+                    vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
+
+                    hue = (hue + 45) % 360;
                 }
-                strip.setBrightness(brightness);
-                strip.show();
-                vTaskDelay(pdMS_TO_TICKS(1));
+                else if (!rainbow && strobe)
+                {
+                    for (int i = 0; i < LED_COUNT; i++)
+                    {
+                        strip.setPixelColor(i, strip.Color(red, green, blue));
+                    }
+                    strip.setBrightness(brightness);
+                    strip.show();
+                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                    for (int i = 0; i < LED_COUNT; i++)
+                    {
+                        strip.setPixelColor(i, 0);
+                    }
+                    strip.show();
+                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                }
+                else if (rainbow && !strobe)
+                {
+                    static uint16_t hue = 0;
+                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                    for (int i = 0; i < strip.numPixels(); i++)
+                    {
+                        strip.setPixelColor(i, color);
+                    }
+
+                    strip.setBrightness(brightness);
+                    strip.show();
+
+                    hue = (hue + 1) % 360;
+                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                }
+                else
+                {
+                    for (int i = 0; i < LED_COUNT; i++)
+                    {
+                        strip.setPixelColor(i, strip.Color(red, green, blue));
+                    }
+                    strip.setBrightness(brightness);
+                    strip.show();
+                    vTaskDelay(pdMS_TO_TICKS(1));
+                }
             }
         }
     }
