@@ -8,7 +8,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include "json.h"
-
+// #define DEBUG
 using namespace std;
 
 #define JSON_FILE "/settings.json"
@@ -582,11 +582,21 @@ void buttonTask(void *pvParameters)
             }
             if (selectedHitIndex == static_cast<int>(HitMenu::TAIL) && buttonState[up])
             {
-                hitData.tail.store(hitData.tail.load() + 1);
+                uint8_t tail = hitData.tail.load() + 1;
+                if (tail > 9)
+                    tail = 9;
+                else if (tail < 0)
+                    tail = 0;
+                hitData.tail.store(tail);
             }
             else if (selectedHitIndex == static_cast<int>(HitMenu::TAIL) && buttonState[down])
             {
-                hitData.tail.store(hitData.tail.load() - 1);
+                uint8_t tail = hitData.tail.load() - 1;
+                if (tail > 9)
+                    tail = 9;
+                else if (tail < 0)
+                    tail = 0;
+                hitData.tail.store(tail);
             }
             if (selectedHitIndex == static_cast<int>(HitMenu::CHASE) && buttonState[up])
             {
@@ -684,242 +694,255 @@ void ledTask(void *pvParameters)
         unsigned long currentTime = millis();
         isHit = analogRead(PIEZO_PIN);
         Serial.println(isHit);
-        if (isHit > 1000 && (currentTime - lastHitTime > hitCooldown))
-        {
-            lastHitTime = currentTime;
-            uint8_t red = hitData.red.load(),
-                    green = hitData.green.load(),
-                    blue = hitData.blue.load(),
-                    brightness = hitData.brightness.load(),
-                    tail = hitData.tail.load();
-            bool rainbow = hitData.rainbow.load(),
-                 chase = hitData.chase.load();
-
-            const int ledCount = strip.numPixels();
-
-            if (rainbow && chase)
+#ifdef DEBUG
+        if (isHit > 15)
+#endif
+#ifndef DEBUG
+            if (isHit > 1000 && (currentTime - lastHitTime > hitCooldown))
+#endif
             {
-                static int pos = 0;
-                const int numLEDs = strip.numPixels();
+                lastHitTime = currentTime;
+                uint8_t red = hitData.red.load(),
+                        green = hitData.green.load(),
+                        blue = hitData.blue.load(),
+                        brightness = hitData.brightness.load(),
+                        tail = hitData.tail.load();
+                bool rainbow = hitData.rainbow.load(),
+                     chase = hitData.chase.load();
 
-                for (int i = 0; i < numLEDs; i++)
-                    strip.setPixelColor(i, 0);
+                const int ledCount = strip.numPixels();
 
-                int steps = tail - 1;
-                int stepDrop = brightness / max(1, steps);
-
-                for (int i = 0; i < tail; i++)
+                if (rainbow && chase)
                 {
-                    int index = (pos - i + numLEDs) % numLEDs;
-                    int level = brightness - i * stepDrop;
-                    if (level < 0)
-                        level = 0;
+                    static int pos = 0;
+                    const int numLEDs = strip.numPixels();
 
-                    uint16_t hue = (i * 360 / tail);
-                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                    for (int i = 0; i < numLEDs; i++)
+                        strip.setPixelColor(i, 0);
 
-                    uint8_t r = (uint8_t)((color >> 16) & 0xFF);
-                    uint8_t g = (uint8_t)((color >> 8) & 0xFF);
-                    uint8_t b = (uint8_t)(color & 0xFF);
+                    int steps = tail - 1;
+                    int stepDrop = brightness / max(1, steps);
 
-                    r = (r * level) / 255;
-                    g = (g * level) / 255;
-                    b = (b * level) / 255;
+                    for (int i = 0; i < tail; i++)
+                    {
+                        int index = (pos - i + numLEDs) % numLEDs;
+                        int level = brightness - i * stepDrop;
+                        if (level < 0)
+                            level = 0;
 
-                    strip.setPixelColor(index, r, g, b);
+                        uint16_t hue = (i * 360 / tail);
+                        uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+
+                        uint8_t r = (uint8_t)((color >> 16) & 0xFF);
+                        uint8_t g = (uint8_t)((color >> 8) & 0xFF);
+                        uint8_t b = (uint8_t)(color & 0xFF);
+
+                        r = (r * level) / 255;
+                        g = (g * level) / 255;
+                        b = (b * level) / 255;
+
+                        strip.setPixelColor(index, r, g, b);
+                    }
+
+                    strip.setBrightness(brightness);
+                    strip.show();
+
+                    pos = (pos + 1) % numLEDs;
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                    // static int pos = 0;
+                    // static uint8_t hueOffset = 0;
+                    // for (int i = 0; i < strip.numPixels(); i++)
+                    // {
+                    //     strip.setPixelColor(i, 0);
+                    // }
+
+                    // for (int i = 0; i < tail; i++)
+                    // {
+                    //     int index = (pos - i + strip.numPixels()) % strip.numPixels();
+
+                    //     uint8_t brightnessScale = 255 - i * (205 / max(1, tail - 1));
+
+                    //     uint16_t pixelHue = (hueOffset + i * 10) % 360;
+                    //     uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 182));
+                    //     uint8_t r = (uint8_t)(color >> 16);
+                    //     uint8_t g = (uint8_t)(color >> 8);
+                    //     uint8_t b = (uint8_t)color;
+                    //     r = (r * brightnessScale) / 255;
+                    //     g = (g * brightnessScale) / 255;
+                    //     b = (b * brightnessScale) / 255;
+
+                    //     strip.setPixelColor(index, r, g, b);
+                    // }
+
+                    // strip.setBrightness(brightness);
+                    // strip.show();
+                    // pos = (pos + 1) % strip.numPixels();
+                    // hueOffset = (hueOffset + 1) % 360;
+
+                    // vTaskDelay(pdMS_TO_TICKS(100));
                 }
-
-                strip.setBrightness(brightness);
-                strip.show();
-
-                pos = (pos + 1) % numLEDs;
-                vTaskDelay(pdMS_TO_TICKS(10));
-                // static int pos = 0;
-                // static uint8_t hueOffset = 0;
-                // for (int i = 0; i < strip.numPixels(); i++)
-                // {
-                //     strip.setPixelColor(i, 0);
-                // }
-
-                // for (int i = 0; i < tail; i++)
-                // {
-                //     int index = (pos - i + strip.numPixels()) % strip.numPixels();
-
-                //     uint8_t brightnessScale = 255 - i * (205 / max(1, tail - 1));
-
-                //     uint16_t pixelHue = (hueOffset + i * 10) % 360;
-                //     uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 182));
-                //     uint8_t r = (uint8_t)(color >> 16);
-                //     uint8_t g = (uint8_t)(color >> 8);
-                //     uint8_t b = (uint8_t)color;
-                //     r = (r * brightnessScale) / 255;
-                //     g = (g * brightnessScale) / 255;
-                //     b = (b * brightnessScale) / 255;
-
-                //     strip.setPixelColor(index, r, g, b);
-                // }
-
-                // strip.setBrightness(brightness);
-                // strip.show();
-                // pos = (pos + 1) % strip.numPixels();
-                // hueOffset = (hueOffset + 1) % 360;
-
-                // vTaskDelay(pdMS_TO_TICKS(100));
-            }
-            else if (rainbow && !chase)
-            {
-                int numLEDs = strip.numPixels();
-
-                uint16_t offset = random(0, 360);
-
-                for (int i = 0; i < numLEDs; i++)
+                else if (rainbow && !chase)
                 {
-                    uint16_t hue = (offset + (i * 360) / numLEDs) % 360;
-                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
-                    strip.setPixelColor(i, color);
+                    int numLEDs = strip.numPixels();
+
+                    uint16_t offset = random(0, 360);
+
+                    for (int i = 0; i < numLEDs; i++)
+                    {
+                        uint16_t hue = (offset + (i * 360) / numLEDs) % 360;
+                        uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                        strip.setPixelColor(i, color);
+                    }
+                    strip.setBrightness(brightness);
+                    strip.show();
+                    vTaskDelay(pdMS_TO_TICKS(10));
                 }
-                strip.setBrightness(brightness);
-                strip.show();
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-            else if (!rainbow && chase)
-            {
-                static int pos = 0;
-
-                for (int i = 0; i < strip.numPixels(); i++)
+                else if (!rainbow && chase)
                 {
-                    strip.setPixelColor(i, 0);
-                }
-
-                int steps = tail - 1;
-                int stepDrop = brightness / max(1, steps);
-                for (int i = 0; i < tail; i++)
-                {
-                    int index = (pos - i + strip.numPixels()) % strip.numPixels();
-
-                    int level = brightness - i * stepDrop;
-                    if (level < 0)
-                        level = 0;
-
-                    uint8_t scaledRed = (red * level) / 255;
-                    uint8_t scaledGreen = (green * level) / 255;
-                    uint8_t scaledBlue = (blue * level) / 255;
-
-                    strip.setPixelColor(index, scaledRed, scaledGreen, scaledBlue);
-                }
-
-                strip.setBrightness(brightness);
-                strip.show();
-
-                pos = (pos + 1) % strip.numPixels();
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-            else
-            {
-
-                uint8_t currentRed = red;
-                uint8_t currentGreen = green;
-                uint8_t currentBlue = blue;
-
-                for (int step = 1; step <= tail; step++)
-                {
-                    uint8_t r = currentRed - (currentRed * step) / tail;
-                    uint8_t g = currentGreen - (currentGreen * step) / tail;
-                    uint8_t b = currentBlue - (currentBlue * step) / tail;
+                    static int pos = 0;
 
                     for (int i = 0; i < strip.numPixels(); i++)
                     {
-                        strip.setPixelColor(i, strip.Color(r, g, b));
-                    }
-
-                    strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (tail * 100)));
-                }
-
-                for (int i = 0; i < strip.numPixels(); i++)
-                    strip.setPixelColor(i, 0);
-                strip.show();
-            }
-        }
-
-        else
-        {
-            if (currentTime - lastBaseEffectTime > baseEffectInterval)
-            {
-                lastBaseEffectTime = currentTime;
-                uint8_t red = baseData.red.load(),
-                        green = baseData.green.load(),
-                        blue = baseData.blue.load(),
-                        brightness = baseData.brightness.load(),
-                        speed = baseData.speed.load();
-                bool rainbow = baseData.rainbow.load();
-                bool strobe = baseData.strobe.load();
-
-                if (rainbow && strobe)
-                {
-
-                    static uint16_t hue = 0;
-                    const int ledCount = strip.numPixels();
-
-                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
-                    for (int i = 0; i < ledCount; i++)
-                        strip.setPixelColor(i, color);
-
-                    strip.setBrightness(brightness);
-                    strip.show();
-
-                    vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
-
-                    for (int i = 0; i < ledCount; i++)
-                        strip.setPixelColor(i, 0);
-                    strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
-
-                    hue = (hue + 45) % 360;
-                }
-                else if (!rainbow && strobe)
-                {
-                    for (int i = 0; i < LED_COUNT; i++)
-                    {
-                        strip.setPixelColor(i, strip.Color(red, green, blue));
-                    }
-                    strip.setBrightness(brightness);
-                    strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
-                    for (int i = 0; i < LED_COUNT; i++)
-                    {
                         strip.setPixelColor(i, 0);
                     }
-                    strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
-                }
-                else if (rainbow && !strobe)
-                {
-                    static uint16_t hue = 0;
-                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
-                    for (int i = 0; i < strip.numPixels(); i++)
+
+                    int steps = tail - 1;
+                    int stepDrop = brightness / max(1, steps);
+                    for (int i = 0; i < tail; i++)
                     {
-                        strip.setPixelColor(i, color);
+                        int index = (pos - i + strip.numPixels()) % strip.numPixels();
+
+                        int level = brightness - i * stepDrop;
+                        if (level < 0)
+                            level = 0;
+
+                        uint8_t scaledRed = (red * level) / 255;
+                        uint8_t scaledGreen = (green * level) / 255;
+                        uint8_t scaledBlue = (blue * level) / 255;
+
+                        strip.setPixelColor(index, scaledRed, scaledGreen, scaledBlue);
                     }
 
                     strip.setBrightness(brightness);
                     strip.show();
 
-                    hue = (hue + 1) % 360;
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                    pos = (pos + 1) % strip.numPixels();
+                    vTaskDelay(pdMS_TO_TICKS(10));
                 }
                 else
                 {
-                    for (int i = 0; i < LED_COUNT; i++)
+
+                    uint8_t currentRed = red;
+                    uint8_t currentGreen = green;
+                    uint8_t currentBlue = blue;
+
+                    for (int i = 0; i < strip.numPixels(); i++)
                     {
-                        strip.setPixelColor(i, strip.Color(red, green, blue));
+                        strip.setPixelColor(i, strip.Color(currentRed, currentGreen, currentBlue));
                     }
-                    strip.setBrightness(brightness);
                     strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(1));
+                    vTaskDelay(pdMS_TO_TICKS(200));
+
+                    int fadeSteps = tail * 10;
+                    int stepDelay = max(1, tail * 10 / fadeSteps);
+
+                    for (int step = 1; step <= fadeSteps; step++)
+                    {
+                        uint8_t r = currentRed - (currentRed * step) / fadeSteps;
+                        uint8_t g = currentGreen - (currentGreen * step) / fadeSteps;
+                        uint8_t b = currentBlue - (currentBlue * step) / fadeSteps;
+
+                        for (int i = 0; i < strip.numPixels(); i++)
+                        {
+                            strip.setPixelColor(i, strip.Color(r, g, b));
+                        }
+                        strip.show();
+                        vTaskDelay(pdMS_TO_TICKS(stepDelay));
+                    }
+                    for (int i = 0; i < strip.numPixels(); i++)
+                        strip.setPixelColor(i, 0);
+                    strip.show();
                 }
             }
-        }
+
+            else
+            {
+                if (currentTime - lastBaseEffectTime > baseEffectInterval)
+                {
+                    lastBaseEffectTime = currentTime;
+                    uint8_t red = baseData.red.load(),
+                            green = baseData.green.load(),
+                            blue = baseData.blue.load(),
+                            brightness = baseData.brightness.load(),
+                            speed = baseData.speed.load();
+                    bool rainbow = baseData.rainbow.load();
+                    bool strobe = baseData.strobe.load();
+
+                    if (rainbow && strobe)
+                    {
+
+                        static uint16_t hue = 0;
+                        const int ledCount = strip.numPixels();
+
+                        uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                        for (int i = 0; i < ledCount; i++)
+                            strip.setPixelColor(i, color);
+
+                        strip.setBrightness(brightness);
+                        strip.show();
+
+                        vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
+
+                        for (int i = 0; i < ledCount; i++)
+                            strip.setPixelColor(i, 0);
+                        strip.show();
+                        vTaskDelay(pdMS_TO_TICKS(500 - (speed * 50)));
+
+                        hue = (hue + 45) % 360;
+                    }
+                    else if (!rainbow && strobe)
+                    {
+                        for (int i = 0; i < LED_COUNT; i++)
+                        {
+                            strip.setPixelColor(i, strip.Color(red, green, blue));
+                        }
+                        strip.setBrightness(brightness);
+                        strip.show();
+                        vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                        for (int i = 0; i < LED_COUNT; i++)
+                        {
+                            strip.setPixelColor(i, 0);
+                        }
+                        strip.show();
+                        vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                    }
+                    else if (rainbow && !strobe)
+                    {
+                        static uint16_t hue = 0;
+                        uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                        for (int i = 0; i < strip.numPixels(); i++)
+                        {
+                            strip.setPixelColor(i, color);
+                        }
+
+                        strip.setBrightness(brightness);
+                        strip.show();
+
+                        hue = (hue + 1) % 360;
+                        vTaskDelay(pdMS_TO_TICKS(1000 - (speed * 100)));
+                    }
+                    else
+                    {
+                        for (int i = 0; i < LED_COUNT; i++)
+                        {
+                            strip.setPixelColor(i, strip.Color(red, green, blue));
+                        }
+                        strip.setBrightness(brightness);
+                        strip.show();
+                        vTaskDelay(pdMS_TO_TICKS(1));
+                    }
+                }
+            }
     }
 }
 void presetTask(void *pvParameters)
@@ -1133,7 +1156,7 @@ void hit_screen(int selectedWidth)
         }
         else if (i == static_cast<int>(HitMenu::TAIL))
         {
-            line += String(hitData.tail.load());
+            line += String(hitData.tail.load() + 1);
         }
         else if (i == static_cast<int>(HitMenu::CHASE))
         {
