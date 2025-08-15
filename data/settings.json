@@ -6,8 +6,8 @@
             "green": 255,
             "brightness": 255,
             "speed": 0,
-            "strobe": false,
-            "rainbow": false
+            "strobe": true,
+            "rainbow": true
         },
         {
             "red": 255,
@@ -16,7 +16,7 @@
             "brightness": 255,
             "speed": 0,
             "strobe": false,
-            "rainbow": false
+            "rainbow": true
         },
         {
             "red": 255,
@@ -33,7 +33,7 @@
             "red": 255,
             "blue": 255,
             "green": 255,
-            "brightness": 100,
+            "brightness": 255,
             "tail": 3,
             "chase": false,
             "rainbow": false
@@ -42,7 +42,7 @@
             "red": 255,
             "blue": 255,
             "green": 255,
-            "brightness": 100,
+            "brightness": 255,
             "tail": 3,
             "chase": false,
             "rainbow": false
@@ -51,7 +51,7 @@
             "red": 255,
             "blue": 255,
             "green": 255,
-            "brightness": 100,
+            "brightness": 255,
             "tail": 3,
             "chase": false,
             "rainbow": false
