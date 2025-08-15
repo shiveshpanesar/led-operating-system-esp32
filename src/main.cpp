@@ -680,7 +680,8 @@ void ledTask(void *pvParameters)
         int isHit = 0;
 
         isHit = analogRead(PIEZO_PIN);
-        if (isHit > 10)
+        Serial.println(isHit);
+        if (isHit > 4094)
         {
             uint8_t red = hitData.red.load(),
                     green = hitData.green.load(),
@@ -811,10 +812,9 @@ void ledTask(void *pvParameters)
             }
             else
             {
-                uint32_t currentColor = strip.getPixelColor(0);
-                uint8_t currentRed = (currentColor >> 16) & 0xFF;
-                uint8_t currentGreen = (currentColor >> 8) & 0xFF;
-                uint8_t currentBlue = currentColor & 0xFF;
+                uint8_t currentRed = red;
+                uint8_t currentGreen = green;
+                uint8_t currentBlue = blue;
 
                 for (int step = 1; step <= tail; step++)
                 {
@@ -828,7 +828,7 @@ void ledTask(void *pvParameters)
                     }
 
                     strip.show();
-                    vTaskDelay(pdMS_TO_TICKS(1000 - (tail * 50)));
+                    vTaskDelay(pdMS_TO_TICKS(1000 - (tail * 100)));
                 }
 
                 for (int i = 0; i < strip.numPixels(); i++)
@@ -907,7 +907,7 @@ void ledTask(void *pvParameters)
                 }
                 strip.setBrightness(brightness);
                 strip.show();
-                vTaskDelay(pdMS_TO_TICKS(10));
+                vTaskDelay(pdMS_TO_TICKS(1));
             }
         }
     }
