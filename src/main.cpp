@@ -728,7 +728,7 @@ void ledTask(void *pvParameters)
                 strip.show();
 
                 pos = (pos + 1) % numLEDs;
-                vTaskDelay(pdMS_TO_TICKS(100));
+                vTaskDelay(pdMS_TO_TICKS(10));
                 // static int pos = 0;
                 // static uint8_t hueOffset = 0;
                 // for (int i = 0; i < strip.numPixels(); i++)
@@ -775,7 +775,7 @@ void ledTask(void *pvParameters)
                 }
                 strip.setBrightness(brightness);
                 strip.show();
-                vTaskDelay(pdMS_TO_TICKS(100));
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
             else if (!rainbow && chase)
             {
@@ -807,7 +807,7 @@ void ledTask(void *pvParameters)
                 strip.show();
 
                 pos = (pos + 1) % strip.numPixels();
-                vTaskDelay(pdMS_TO_TICKS(100));
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
             else
             {
