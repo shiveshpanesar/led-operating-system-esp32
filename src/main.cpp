@@ -1066,14 +1066,14 @@ void setup()
     for (int i = 0; i < NUM_SENSORS; i++)
     {
         taskParams[i].piezoPin = piezoPins[i];
-        taskParams[i].ledStart = i * 10; // 10 LEDs per sensor
+        taskParams[i].ledStart = i * 10;
         taskParams[i].ledCount = 10;
 
         xTaskCreate(
             ledTask,
             "LED Task",
-            4096,           // bigger stack if using complex effects
-            &taskParams[i], // pass struct
+            4096,
+            &taskParams[i],
             1,
             &ledTaskHandles[i]);
     }
