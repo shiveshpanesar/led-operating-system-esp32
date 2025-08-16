@@ -8,6 +8,10 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include "json.h"
+#include <esp_wifi.h>
+#include <esp_bt.h>
+#include <WiFi.h>
+
 using namespace std;
 
 #define JSON_FILE "/settings.json"
@@ -29,7 +33,7 @@ const int NUM_SENSORS = 10;
 int piezoPins[NUM_SENSORS] = {34, 35, 36, 39, 27, 13, 14, 4, 2, 15};
 struct LedTaskParams
 {
-    int piezoPin;
+    uint8_t piezoPin;
     int ledStart;
     int ledCount;
 };
@@ -702,7 +706,7 @@ void ledTask(void *pvParameters)
     const uint32_t baseEffectInterval = 20;
     static uint8_t hue = 0;
     LedTaskParams *params = (LedTaskParams *)pvParameters;
-    int piezoPin = params->piezoPin;
+    uint8_t piezoPin = params->piezoPin;
 
     while (true)
     {
@@ -1036,6 +1040,10 @@ void restartLedTask()
 
 void setup()
 {
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+
+    btStop();
     Serial.begin(9600);
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
