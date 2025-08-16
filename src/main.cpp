@@ -26,7 +26,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const int NUM_SENSORS = 10;
-int piezoPins[NUM_SENSORS] = {34, 35, 36, 39, 5, 17, 16, 4, 2, 15};
+int piezoPins[NUM_SENSORS] = {34, 35, 36, 39, 27, 13, 14, 4, 2, 15};
 struct LedTaskParams
 {
     int piezoPin;
@@ -38,7 +38,9 @@ TaskHandle_t ledTaskHandles[NUM_SENSORS];
 
 const uint8_t presetPins[6] = {26, 25, 33, 32, 19, 18};
 atomic<bool> presetState[6];
-const uint8_t btnPins[4] = {12, 13, 14, 27};
+// const uint8_t btnPins[4] = {12, 13, 14, 27};
+const uint8_t btnPins[4] = {12, 17, 16, 5};
+
 atomic<bool> buttonState[4];
 
 enum btn
@@ -1068,11 +1070,10 @@ void setup()
         taskParams[i].piezoPin = piezoPins[i];
         taskParams[i].ledStart = i * 10;
         taskParams[i].ledCount = 10;
-
         xTaskCreate(
             ledTask,
             "LED Task",
-            4096,
+            2048,
             &taskParams[i],
             1,
             &ledTaskHandles[i]);
