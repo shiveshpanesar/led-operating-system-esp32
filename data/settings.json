@@ -35,7 +35,7 @@
             "green": 255,
             "brightness": 255,
             "tail": 3,
-            "chase": false,
+            "chase": true,
             "rainbow": false
         },
         {
@@ -45,7 +45,7 @@
             "brightness": 255,
             "tail": 3,
             "chase": false,
-            "rainbow": false
+            "rainbow": true
         },
         {
             "red": 255,
@@ -53,8 +53,8 @@
             "green": 255,
             "brightness": 255,
             "tail": 3,
-            "chase": false,
-            "rainbow": false
+            "chase": true,
+            "rainbow": true
         }
     ]
 }

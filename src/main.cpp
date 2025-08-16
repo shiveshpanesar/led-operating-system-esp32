@@ -12,18 +12,30 @@ using namespace std;
 
 #define JSON_FILE "/settings.json"
 
-#define PIEZO_PIN 35
 #define LED_PIN 23
 #define LED_COUNT 14
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 #define fo4 for (uint8_t i = 0; i < 4; i++)
 #define fo6 for (uint8_t i = 0; i < 6; i++)
+#define fo10 for (uint8_t i = 0; i < 10; i++)
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int NUM_SENSORS = 10;
+int piezoPins[NUM_SENSORS] = {34, 35, 36, 39, 5, 17, 16, 4, 2, 15};
+struct LedTaskParams
+{
+    int piezoPin;
+    int ledStart;
+    int ledCount;
+};
+LedTaskParams taskParams[NUM_SENSORS];
+TaskHandle_t ledTaskHandles[NUM_SENSORS];
+
 const uint8_t presetPins[6] = {26, 25, 33, 32, 19, 18};
 atomic<bool> presetState[6];
 const uint8_t btnPins[4] = {12, 13, 14, 27};
@@ -83,16 +95,17 @@ enum class BaseMenu
 {
     COLOR,
     BRIGHTNESS,
+    SPEED,
     STROBE,
-    RAINBOW,
-    SPEED
+    RAINBOW
+
 };
 const char *baseItems[baseItemCount] = {
     "Color",
     "Brightness",
+    "Speed",
     "Strobe",
-    "Rainbow",
-    "Speed"};
+    "Rainbow"};
 
 std::atomic<int> selectedRGBIndex{0};
 constexpr int RGBItemCount = 3;
@@ -235,7 +248,7 @@ void loadPresetToJson(uint8_t i)
         hitData.chase.store(hit_item["chase"]);
         hitData.rainbow.store(hit_item["rainbow"]);
     }
-    // Serial.println("Preset saved.");
+    // Serial.println("Preset Loaded.");
     // printAllData();
     // Serial.println("✅ settings.json contents:");
     // serializeJsonPretty(doc, Serial);
@@ -396,7 +409,7 @@ void buttonTask(void *pvParameters)
             if (buttonState[i].load())
                 pressed = true;
         }
-        if (currentMenu == MENU_MAIN)
+        if (currentMenu.load() == MENU_MAIN)
         {
             if (buttonState[up].load() || buttonState[down].load())
             {
@@ -417,7 +430,7 @@ void buttonTask(void *pvParameters)
                 printAllData();
             }
         }
-        else if (currentMenu == BASEMENU)
+        else if (currentMenu.load() == BASEMENU)
         {
             if (buttonState[up].load() || buttonState[down].load())
             {
@@ -441,7 +454,7 @@ void buttonTask(void *pvParameters)
                 currentMenu.store(MENU_MAIN);
             }
         }
-        else if (currentMenu == HITMENU)
+        else if (currentMenu.load() == HITMENU)
         {
             if (buttonState[up].load() || buttonState[down].load())
             {
@@ -465,7 +478,7 @@ void buttonTask(void *pvParameters)
                 currentMenu.store(MENU_MAIN);
             }
         }
-        else if (currentMenu == RGB_SCREEN)
+        else if (currentMenu.load() == RGB_SCREEN)
         {
             if (buttonState[up].load() || buttonState[down].load())
             {
@@ -517,11 +530,11 @@ void buttonTask(void *pvParameters)
             // {
             //     baseData.brightness.store(baseData.brightness.load() - 22.5);
             // }
-            if (selectedBaseIndex == static_cast<int>(BaseMenu::BRIGHTNESS))
+            if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::BRIGHTNESS))
             {
                 adjustValueHold(baseData.brightness, isUpPressed, isDownPressed, 0, 255, 22.5);
             }
-            if (selectedBaseIndex == static_cast<int>(BaseMenu::SPEED) && buttonState[up])
+            if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::SPEED) && buttonState[up])
             {
                 uint8_t speed = baseData.speed.load() + 1;
                 if (speed > 9)
@@ -530,7 +543,7 @@ void buttonTask(void *pvParameters)
                     speed = 0;
                 baseData.speed.store(speed);
             }
-            else if (selectedBaseIndex == static_cast<int>(BaseMenu::SPEED) && buttonState[down])
+            else if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::SPEED) && buttonState[down])
             {
                 uint8_t speed = baseData.speed.load() - 1;
                 if (speed > 9)
@@ -539,19 +552,19 @@ void buttonTask(void *pvParameters)
                     speed = 0;
                 baseData.speed.store(speed);
             }
-            if (selectedBaseIndex == static_cast<int>(BaseMenu::STROBE) && buttonState[up])
+            if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::STROBE) && buttonState[up])
             {
                 baseData.strobe.store(true);
             }
-            else if (selectedBaseIndex == static_cast<int>(BaseMenu::STROBE) && buttonState[down])
+            else if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::STROBE) && buttonState[down])
             {
                 baseData.strobe.store(false);
             }
-            if (selectedBaseIndex == static_cast<int>(BaseMenu::RAINBOW) && buttonState[up])
+            if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::RAINBOW) && buttonState[up])
             {
                 baseData.rainbow.store(true);
             }
-            else if (selectedBaseIndex == static_cast<int>(BaseMenu::RAINBOW) && buttonState[down])
+            else if (selectedBaseIndex.load() == static_cast<int>(BaseMenu::RAINBOW) && buttonState[down])
             {
                 baseData.rainbow.store(false);
             }
@@ -574,11 +587,11 @@ void buttonTask(void *pvParameters)
             // {
             //     hitData.brightness.store(hitData.brightness.load() - 22.5);
             // }
-            if (selectedHitIndex == static_cast<int>(HitMenu::BRIGHTNESS))
+            if (selectedHitIndex.load() == static_cast<int>(HitMenu::BRIGHTNESS))
             {
                 adjustValueHold(hitData.brightness, isUpPressed, isDownPressed, 0, 255, 22.5);
             }
-            if (selectedHitIndex == static_cast<int>(HitMenu::TAIL) && buttonState[up])
+            if (selectedHitIndex.load() == static_cast<int>(HitMenu::TAIL) && buttonState[up].load())
             {
                 uint8_t tail = hitData.tail.load() + 1;
                 if (tail > 9)
@@ -587,7 +600,7 @@ void buttonTask(void *pvParameters)
                     tail = 0;
                 hitData.tail.store(tail);
             }
-            else if (selectedHitIndex == static_cast<int>(HitMenu::TAIL) && buttonState[down])
+            else if (selectedHitIndex.load() == static_cast<int>(HitMenu::TAIL) && buttonState[down].load())
             {
                 uint8_t tail = hitData.tail.load() - 1;
                 if (tail > 9)
@@ -596,19 +609,19 @@ void buttonTask(void *pvParameters)
                     tail = 0;
                 hitData.tail.store(tail);
             }
-            if (selectedHitIndex == static_cast<int>(HitMenu::CHASE) && buttonState[up])
+            if (selectedHitIndex.load() == static_cast<int>(HitMenu::CHASE) && buttonState[up].load())
             {
                 hitData.chase.store(1);
             }
-            else if (selectedHitIndex == static_cast<int>(HitMenu::CHASE) && buttonState[down])
+            else if (selectedHitIndex.load() == static_cast<int>(HitMenu::CHASE) && buttonState[down].load())
             {
                 hitData.chase.store(0);
             }
-            if (selectedHitIndex == static_cast<int>(HitMenu::RAINBOW) && buttonState[up])
+            if (selectedHitIndex.load() == static_cast<int>(HitMenu::RAINBOW) && buttonState[up].load())
             {
                 hitData.rainbow.store(1);
             }
-            else if (selectedHitIndex == static_cast<int>(HitMenu::RAINBOW) && buttonState[down])
+            else if (selectedHitIndex.load() == static_cast<int>(HitMenu::RAINBOW) && buttonState[down].load())
             {
                 hitData.rainbow.store(0);
             }
@@ -680,20 +693,23 @@ void heartbeatEffect(uint8_t red, uint8_t green, uint8_t blue, uint8_t brightnes
 }
 void ledTask(void *pvParameters)
 {
-    heartbeatEffect(100, 100, 100, 100);
+    // heartbeatEffect(100, 100, 100, 100);
     static uint32_t lastHitTime = 0;
     static uint32_t lastBaseEffectTime = 0;
     const uint32_t hitCooldown = 50;
     const uint32_t baseEffectInterval = 20;
     static uint8_t hue = 0;
+    LedTaskParams *params = (LedTaskParams *)pvParameters;
+    int piezoPin = params->piezoPin;
+
     while (true)
     {
         int isHit = 0;
         unsigned long currentTime = millis();
-        isHit = analogRead(PIEZO_PIN);
+        isHit = analogRead(piezoPin);
         Serial.println(isHit);
-        // if (isHit)
-        if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
+        if (1)
+        // if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
         {
             lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
@@ -710,70 +726,52 @@ void ledTask(void *pvParameters)
             {
                 static int pos = 0;
                 const int numLEDs = strip.numPixels();
+                uint32_t colors[7] = {
+                    strip.Color(255, 0, 0),   // Red
+                    strip.Color(255, 127, 0), // Orange
+                    strip.Color(255, 255, 0), // Yellow
+                    strip.Color(0, 255, 0),   // Green
+                    strip.Color(0, 255, 255), // Cyan
+                    strip.Color(0, 0, 255),   // Blue
+                    strip.Color(148, 0, 211)  // Violet
+                };
 
-                for (int i = 0; i < numLEDs; i++)
-                    strip.setPixelColor(i, 0);
-
-                int steps = tail - 1;
-                int stepDrop = brightness / max(1, steps);
-
-                for (int i = 0; i < tail; i++)
+                int tail = 7;
+                int delayPerStep = 500 / numLEDs;
+                while (pos < numLEDs)
                 {
-                    int index = (pos - i + numLEDs) % numLEDs;
-                    int level = brightness - i * stepDrop;
-                    if (level < 0)
-                        level = 0;
+                    for (int i = 0; i < numLEDs; i++)
+                        strip.setPixelColor(i, 0);
 
-                    uint16_t hue = (i * 360 / tail);
-                    uint32_t color = strip.gamma32(strip.ColorHSV(hue * 182));
+                    for (int i = 0; i < tail; i++)
+                    {
+                        int index = pos - i;
+                        if (index < 0)
+                            continue;
+                        uint32_t color = colors[i % 7];
 
-                    uint8_t r = (uint8_t)((color >> 16) & 0xFF);
-                    uint8_t g = (uint8_t)((color >> 8) & 0xFF);
-                    uint8_t b = (uint8_t)(color & 0xFF);
+                        uint8_t r = (uint8_t)((color >> 16) & 0xFF);
+                        uint8_t g = (uint8_t)((color >> 8) & 0xFF);
+                        uint8_t b = (uint8_t)(color & 0xFF);
 
-                    r = (r * level) / 255;
-                    g = (g * level) / 255;
-                    b = (b * level) / 255;
+                        int level = brightness - (i * (brightness / tail));
+                        if (level < 0)
+                            level = 0;
 
-                    strip.setPixelColor(index, r, g, b);
+                        r = (r * level) / 255;
+                        g = (g * level) / 255;
+                        b = (b * level) / 255;
+
+                        strip.setPixelColor(index, r, g, b);
+                    }
+
+                    strip.setBrightness(brightness);
+                    strip.show();
+
+                    pos++;
+                    vTaskDelay(pdMS_TO_TICKS(delayPerStep));
                 }
-
-                strip.setBrightness(brightness);
-                strip.show();
-
-                pos = (pos + 1) % numLEDs;
-                vTaskDelay(pdMS_TO_TICKS(10));
-                // static int pos = 0;
-                // static uint8_t hueOffset = 0;
-                // for (int i = 0; i < strip.numPixels(); i++)
-                // {
-                //     strip.setPixelColor(i, 0);
-                // }
-
-                // for (int i = 0; i < tail; i++)
-                // {
-                //     int index = (pos - i + strip.numPixels()) % strip.numPixels();
-
-                //     uint8_t brightnessScale = 255 - i * (205 / max(1, tail - 1));
-
-                //     uint16_t pixelHue = (hueOffset + i * 10) % 360;
-                //     uint32_t color = strip.gamma32(strip.ColorHSV(pixelHue * 182));
-                //     uint8_t r = (uint8_t)(color >> 16);
-                //     uint8_t g = (uint8_t)(color >> 8);
-                //     uint8_t b = (uint8_t)color;
-                //     r = (r * brightnessScale) / 255;
-                //     g = (g * brightnessScale) / 255;
-                //     b = (b * brightnessScale) / 255;
-
-                //     strip.setPixelColor(index, r, g, b);
-                // }
-
-                // strip.setBrightness(brightness);
-                // strip.show();
-                // pos = (pos + 1) % strip.numPixels();
-                // hueOffset = (hueOffset + 1) % 360;
-
-                // vTaskDelay(pdMS_TO_TICKS(100));
+                pos = 0;
             }
             else if (rainbow && !chase)
             {
@@ -789,41 +787,48 @@ void ledTask(void *pvParameters)
                 }
                 strip.setBrightness(brightness);
                 strip.show();
-                vTaskDelay(pdMS_TO_TICKS(10));
+                vTaskDelay(pdMS_TO_TICKS(100));
             }
             else if (!rainbow && chase)
             {
 
-                // make it go through whole length within tail time
-                static int pos = 0;
+                uint16_t numLeds = strip.numPixels();
 
-                for (int i = 0; i < strip.numPixels(); i++)
+                // How long to wait per step so we finish in timeLimitMs
+                uint16_t stepDelay = 100 / numLeds;
+
+                int pos = 0; // always start from 0
+
+                while (pos < numLeds)
                 {
-                    strip.setPixelColor(i, 0);
+                    // Clear strip
+                    for (int i = 0; i < numLeds; i++)
+                        strip.setPixelColor(i, 0);
+
+                    int steps = tail - 1;
+                    int stepDrop = brightness / max(1, steps);
+
+                    // Draw tail
+                    for (int i = 0; i < tail; i++)
+                    {
+                        int index = (pos - i + numLeds) % numLeds;
+                        int level = brightness - i * stepDrop;
+                        if (level < 0)
+                            level = 0;
+
+                        uint8_t scaledRed = (red * level) / 255;
+                        uint8_t scaledGreen = (green * level) / 255;
+                        uint8_t scaledBlue = (blue * level) / 255;
+
+                        strip.setPixelColor(index, scaledRed, scaledGreen, scaledBlue);
+                    }
+
+                    strip.setBrightness(brightness);
+                    strip.show();
+
+                    pos++;
+                    vTaskDelay(pdMS_TO_TICKS(stepDelay));
                 }
-
-                int steps = tail - 1;
-                int stepDrop = brightness / max(1, steps);
-                for (int i = 0; i < tail; i++)
-                {
-                    int index = (pos - i + strip.numPixels()) % strip.numPixels();
-
-                    int level = brightness - i * stepDrop;
-                    if (level < 0)
-                        level = 0;
-
-                    uint8_t scaledRed = (red * level) / 255;
-                    uint8_t scaledGreen = (green * level) / 255;
-                    uint8_t scaledBlue = (blue * level) / 255;
-
-                    strip.setPixelColor(index, scaledRed, scaledGreen, scaledBlue);
-                }
-
-                strip.setBrightness(brightness);
-                strip.show();
-
-                pos = (pos + 1) % strip.numPixels();
-                vTaskDelay(pdMS_TO_TICKS(10));
             }
             else
             {
@@ -866,7 +871,8 @@ void ledTask(void *pvParameters)
 
         else
         {
-            if (currentTime - lastBaseEffectTime > baseEffectInterval)
+            if (1)
+            // if (currentTime - lastBaseEffectTime > baseEffectInterval)
             {
                 lastBaseEffectTime = currentTime;
                 uint8_t red = baseData.red.load(),
@@ -930,7 +936,7 @@ void ledTask(void *pvParameters)
                     strip.show();
 
                     hue = (hue + 1) % 360;
-                    vTaskDelay(pdMS_TO_TICKS(910 - (speed * 100)));
+                    vTaskDelay(pdMS_TO_TICKS(19 - (speed * 2)));
                 }
                 else
                 {
@@ -957,13 +963,12 @@ void presetTask(void *pvParameters)
             presetState[i].store(!digitalRead(presetPins[i]));
             if (presetState[i].load())
                 pressed = true;
-            if (presetState[i].load() && (currentMenu == MENU_MAIN))
+            if (presetState[i].load() && (currentMenu.load() == MENU_MAIN))
             {
                 if (i < 3)
                     mem_screen_data = "Loading Base Preset " + String(i + 1);
                 else if (i > 2)
                     mem_screen_data = "Loading Hit Preset " + String((i - 3) + 1);
-
                 MenuState temp = currentMenu.load();
                 currentMenu.store(MEM_SCREEN);
                 loadPresetToJson(i);
@@ -1051,12 +1056,27 @@ void setup()
     {
         Serial.println("SPIFFS mount failed");
     }
-    pinMode(PIEZO_PIN, INPUT_PULLUP);
+    fo10
+        pinMode(piezoPins[i], INPUT_PULLUP);
     strip.begin();
     strip.show();
     xTaskCreate(oledTask, "OLED Task", 4096, NULL, 1, NULL);
     xTaskCreate(buttonTask, "Task Task", 4096, NULL, 1, NULL);
-    xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, &ledTaskHandle);
+    // xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, &ledTaskHandle);
+    for (int i = 0; i < NUM_SENSORS; i++)
+    {
+        taskParams[i].piezoPin = piezoPins[i];
+        taskParams[i].ledStart = i * 10; // 10 LEDs per sensor
+        taskParams[i].ledCount = 10;
+
+        xTaskCreate(
+            ledTask,
+            "LED Task",
+            4096,           // bigger stack if using complex effects
+            &taskParams[i], // pass struct
+            1,
+            &ledTaskHandles[i]);
+    }
     xTaskCreate(presetTask, "Preset Task", 4096, NULL, 1, NULL);
 }
 void loop()
@@ -1253,6 +1273,7 @@ void rgb_screen(int selectWidth)
 void mem_screen(String line)
 {
     display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
     display.setCursor(0, 20);
     display.print(line);
     display.display();
