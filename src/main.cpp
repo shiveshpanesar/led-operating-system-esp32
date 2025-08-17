@@ -713,12 +713,12 @@ void ledTask(void *pvParameters)
         int isHit = 0;
         unsigned long currentTime = millis();
         isHit = analogRead(piezoPin);
-        Serial.print(piezoPin);
-        Serial.print("  ");
-        Serial.println(isHit);
+        // Serial.print(piezoPin);
+        // Serial.print("  ");
+        // Serial.println(isHit);
 
         // if (1)
-        if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
+        if (isHit > 100 && (currentTime - lastHitTime > hitCooldown))
         {
             lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
@@ -959,6 +959,7 @@ void ledTask(void *pvParameters)
                 }
             }
         }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 void presetTask(void *pvParameters)
@@ -1066,7 +1067,7 @@ void setup()
     {
         Serial.println("SPIFFS mount failed");
     }
-    fo10 pinMode(piezoPins[i], INPUT);
+    fo10 pinMode(piezoPins[i], INPUT_PULLUP);
     strip.begin();
     strip.show();
     xTaskCreate(oledTask, "OLED Task", 4096, NULL, 1, NULL);
