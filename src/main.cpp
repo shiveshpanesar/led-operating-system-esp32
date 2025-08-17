@@ -22,7 +22,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 #define fo4 for (uint8_t i = 0; i < 4; i++)
 #define fo6 for (uint8_t i = 0; i < 6; i++)
-#define fo10 for (uint8_t i = 0; i < 10; i++)
+#define fo10 for (uint8_t i = 0; i < 3; i++)
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -30,7 +30,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const int NUM_SENSORS = 10;
-int piezoPins[NUM_SENSORS] = {34, 35, 36, 39, 27, 13, 14, 4, 2, 15};
+int piezoPins[NUM_SENSORS] = {34, 35, 39, 36, 27, 13, 14, 4, 2, 15};
 struct LedTaskParams
 {
     uint8_t piezoPin;
@@ -713,9 +713,12 @@ void ledTask(void *pvParameters)
         int isHit = 0;
         unsigned long currentTime = millis();
         isHit = analogRead(piezoPin);
+        Serial.print(piezoPin);
+        Serial.print("  ");
         Serial.println(isHit);
-        if (1)
-        // if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
+
+        // if (1)
+        if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
         {
             lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
@@ -877,8 +880,8 @@ void ledTask(void *pvParameters)
 
         else
         {
-            if (1)
-            // if (currentTime - lastBaseEffectTime > baseEffectInterval)
+            // if (1)
+            if (currentTime - lastBaseEffectTime > baseEffectInterval)
             {
                 lastBaseEffectTime = currentTime;
                 uint8_t red = baseData.red.load(),
@@ -1058,22 +1061,18 @@ void setup()
         pinMode(btnPins[i], INPUT_PULLUP);
         buttonState[i].store(false);
     }
-    fo6
-    {
-        pinMode(presetPins[i], INPUT_PULLUP);
-    }
+    fo6 pinMode(presetPins[i], INPUT_PULLUP);
     if (!SPIFFS.begin(true))
     {
         Serial.println("SPIFFS mount failed");
     }
-    fo10
-        pinMode(piezoPins[i], INPUT_PULLUP);
+    fo10 pinMode(piezoPins[i], INPUT);
     strip.begin();
     strip.show();
     xTaskCreate(oledTask, "OLED Task", 4096, NULL, 1, NULL);
     xTaskCreate(buttonTask, "Task Task", 4096, NULL, 1, NULL);
     // xTaskCreate(ledTask, "LED Task", 2048, NULL, 1, &ledTaskHandle);
-    for (int i = 0; i < NUM_SENSORS; i++)
+    fo10
     {
         taskParams[i].piezoPin = piezoPins[i];
         taskParams[i].ledStart = i * 10;
