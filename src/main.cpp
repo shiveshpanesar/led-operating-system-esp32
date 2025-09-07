@@ -22,7 +22,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 #define fo4 for (uint8_t i = 0; i < 4; i++)
 #define fo6 for (uint8_t i = 0; i < 6; i++)
-#define fo10 for (uint8_t i = 0; i < 3; i++)
+#define fo10 for (uint8_t i = 0; i < 1; i++)
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -30,7 +30,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const int NUM_SENSORS = 10;
-int piezoPins[NUM_SENSORS] = {34, 35, 39, 36, 27, 13, 14, 4, 2, 15};
+int piezoPins[NUM_SENSORS] = {35, 35, 39, 36, 27, 13, 14, 4, 2, 15};
 struct LedTaskParams
 {
     uint8_t piezoPin;
@@ -713,12 +713,12 @@ void ledTask(void *pvParameters)
         int isHit = 0;
         unsigned long currentTime = millis();
         isHit = analogRead(piezoPin);
-        // Serial.print(piezoPin);
-        // Serial.print("  ");
-        // Serial.println(isHit);
+        Serial.print(piezoPin);
+        Serial.print("  ");
+        Serial.println(isHit);
 
         // if (1)
-        if (isHit > 100 && (currentTime - lastHitTime > hitCooldown))
+        if (isHit > 10 && (currentTime - lastHitTime > hitCooldown))
         {
             lastHitTime = currentTime;
             uint8_t red = hitData.red.load(),
